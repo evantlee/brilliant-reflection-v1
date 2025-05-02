@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="32px" height="32px" viewBox="0 0 32 32" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Vite</title>
+    <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="vite-logo" fill-rule="nonzero">
+            <polygon id="Path" fill="#41B883" points="16.0501796 0 31.3754067 5.78550296 28.8012008 27.4312631 16.0501796 32 3.29915841 27.4312631 0.724952543 5.78550296"></polygon>
+            <polygon id="Path" fill="#34495E" points="16.0501796 3.552 25.2174932 7.79484444 23.3587371 23.5477333 16.0501796 27.008 8.74162212 23.5477333 6.88286597 7.79484444"></polygon>
+            <polygon id="Path" fill="#FFFFFF" points="16.0501796 13.6181935 20.0551852 10.1712774 16.0501796 6.72436129 12.045174 10.1712774"></polygon>
+            <polygon id="Path" fill="#FFFFFF" points="11.4203401 12.0383226 15.4253457 15.4852387 11.4203401 18.9321548 7.41533452 15.4852387"></polygon>
+            <polygon id="Path" fill="#FFFFFF" points="20.6800136 12.0383226 24.6850192 15.4852387 20.6800136 18.9321548 16.6750081 15.4852387"></polygon>
+            <polygon id="Path" fill="#FFFFFF" points="16.0501796 21.0818065 20.0551852 17.6348903 16.0501796 14.1879742 12.045174 17.6348903"></polygon>
+        </g>
+    </g>
+</svg>
