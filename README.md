@@ -76,3 +76,30 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## Acknowledgments
 
 This project was inspired by the need for intuitive educational tools to teach optics and demonstrate how reflections and virtual images work in physics.
+
+## Ray Tracing System
+
+The ray tracing system visualizes how light rays travel between virtual objects and observers, helping students understand the principles of reflection.
+
+### Key Components
+
+- **Room Intersections**: Uses a slab-based algorithm to calculate parametric intervals where rays intersect room boundaries
+- **Segment Generation**: Creates accurate ray segments that follow the law of reflection
+- **Lowest Order Priority**: Ensures that overlapping virtual rooms are handled correctly by selecting the shortest path (lowest reflection order)
+- **Coordinate Transformation**: Manages transformations between local room coordinates and global coordinates
+- **Offset Compensation**: Adjusts ray paths to account for virtual room positions 
+- **Visual Debugging**: Includes a debugging system to visualize ray paths, room boundaries, and segment information
+
+### Implementation Notes
+
+- Ray paths are rendered using SVG with absolute positioning and transform offset compensation
+- The `findRayRoomIntersections` utility provides a clean, ordered list of room segments
+- Debug mode shows segment order, room assignments, and visual indicators for segment types
+- All ray calculations follow the law of reflection (angle of incidence = angle of reflection)
+
+## Usage
+
+Click on any pink "×" virtual object to draw a direct ray from that object to the observer.
+- The ray will appear **red** if the observer can see the virtual object through the original room
+- The ray will appear **light red** if it's out of sight
+- Toggle debug mode using the "?" button to see detailed ray segment information

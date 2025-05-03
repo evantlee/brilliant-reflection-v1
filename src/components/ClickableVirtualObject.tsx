@@ -1,7 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import { PlacedObject, Point, Room } from '../models/types';
 import SimpleRayPath from './SimpleRayPath';
-import ReactDOM from 'react-dom';
 
 interface ClickableVirtualObjectProps {
   virtualObject: PlacedObject;
@@ -15,6 +14,9 @@ interface ClickableVirtualObjectProps {
 
 /**
  * A clickable virtual object that shows a ray path to the observer when clicked.
+ * 
+ * This component allows users to visualize how light travels from virtual objects
+ * to the observer, showing the path across all rooms.
  */
 const ClickableVirtualObject: React.FC<ClickableVirtualObjectProps> = ({
   virtualObject,
@@ -26,26 +28,12 @@ const ClickableVirtualObject: React.FC<ClickableVirtualObjectProps> = ({
   style
 }) => {
   const [isSelected, setIsSelected] = useState(false);
-  // Reference to the root element for portal rendering
-  const rootRef = useRef<HTMLElement | null>(null);
-
-  // Find the root element once on mount
-  useEffect(() => {
-    rootRef.current = document.getElementById('root') || document.body;
-  }, []);
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent any parent handlers from firing
     console.log(`Clicked virtual object: ${virtualObject.id}`);
     setIsSelected(!isSelected);
   };
-
-  // Find the containing room
-  const virtualRoom = rooms.find(r => r.id === virtualObject.roomId);
-  if (!virtualRoom) {
-    console.error(`Room ${virtualObject.roomId} not found for virtual object`);
-    return null;
-  }
 
   return (
     <>
@@ -78,8 +66,8 @@ const ClickableVirtualObject: React.FC<ClickableVirtualObjectProps> = ({
         </span>
       </div>
 
-      {/* Use React Portal to render the ray path at the top level of the DOM for proper rendering */}
-      {isSelected && rootRef.current && ReactDOM.createPortal(
+      {/* Draw ray path when selected */}
+      {isSelected && (
         <SimpleRayPath
           virtualObject={virtualObject}
           observer={observer}
@@ -87,8 +75,7 @@ const ClickableVirtualObject: React.FC<ClickableVirtualObjectProps> = ({
           roomSize={roomSize}
           roomWidth={roomWidth}
           roomHeight={roomHeight}
-        />,
-        rootRef.current
+        />
       )}
     </>
   );
