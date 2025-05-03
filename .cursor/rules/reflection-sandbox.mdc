@@ -1,0 +1,97 @@
+# Reflection Sandbox Project Rules
+
+## General
+
+- Use TypeScript with React functional components and hooks.
+- Prioritize readability and clear documentation.
+- Maintain a clean separation between UI components and core logic.
+- Use custom hooks for complex state interactions.
+- Use utility functions for mathematical operations.
+
+## File Structure
+
+- Place UI components in `/src/components`.
+- Place custom React hooks in `/src/hooks`.
+- Place helper functions in `/src/utils`.
+- Place TypeScript interfaces in `/src/models`.
+
+## Styling
+
+- Use CSS modules for component-specific styles.
+- Follow BEM naming convention for CSS classes.
+- Color scheme:
+  - Original room: black border
+  - Virtual rooms: cyan border
+  - Objects: magenta 'x' markers
+  - Observer: purple circle
+  - Ray paths: red lines
+
+## Math & Physics
+
+- All reflection calculations must follow the law of reflection (angle of incidence = angle of reflection).
+- Handle higher-order reflections carefully to avoid overlapping virtual rooms.
+- Ray tracing must validate that rays only pass through mirrored surfaces.
+
+## Animation
+
+- Use Anime.js for smooth animations.
+- Folding animations should clearly show the connection between virtual and real paths.
+- Maintain perspective during 3D transformations.
+- Optimize for performance in complex scenes with many reflections.
+
+## Commenting & Documentation
+
+- Add JSDoc comments for all functions and components.
+- Explain complex mathematical operations with comments.
+- Reference relevant optics concepts where appropriate.
+
+## Developer Notes
+
+- The room tree structure is important for tracking ancestry of virtual rooms.
+- Ray validation is critical to ensure physical correctness.
+- The folding animation is the key educational component.
+
+---
+
+# Example Usage
+
+When creating a new component, follow this template:
+
+```tsx
+/**
+ * MyComponent - Brief description of what this component does.
+ * @see https://en.wikipedia.org/wiki/Reflection_(physics)
+ */
+import React from 'react';
+import styles from './MyComponent.module.css';
+
+interface MyComponentProps {
+  // ...
+}
+
+export const MyComponent: React.FC<MyComponentProps> = (props) => {
+  // ...
+};
+```
+
+When writing a utility function for reflection:
+
+```ts
+/**
+ * Calculates the reflected point across a given axis.
+ * Follows the law of reflection: angle of incidence = angle of reflection.
+ * @param point - The original point
+ * @param axis - The axis of reflection
+ * @returns The reflected point
+ */
+export function reflectPoint(point: Point, axis: Axis): Point {
+  // ...
+}
+```
+
+---
+
+# References
+
+- [Cursor Rules Documentation](https://docs.cursor.com/context/rules)
+- [Awesome Cursor Rules Repo](https://github.com/PatrickJS/awesome-cursorrules) 

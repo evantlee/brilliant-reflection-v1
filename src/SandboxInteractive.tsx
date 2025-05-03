@@ -106,19 +106,6 @@ const SandboxInteractive: React.FC = () => {
     };
   };
 
-  // Create a complete list of rooms to pass to ClickableVirtualObject
-  const allRoomsWithData = [
-    { 
-      id: 'original', 
-      position: { x: 0, y: 0 }, 
-      reflectionOrder: 0, 
-      width: room.width, 
-      height: room.height, 
-      walls: room.mirroredWalls 
-    }, 
-    ...virtualRooms
-  ];
-
   return (
     <div className="app">
       <h1>Reflection Sandbox</h1>
@@ -181,6 +168,7 @@ const SandboxInteractive: React.FC = () => {
                 width: ROOM_SIZE,
                 height: ROOM_SIZE,
                 zIndex: 1,
+                // Remove pointer-events: none from here to allow clicks on virtual objects
               }}
             >
               {/* Debug: Show room position */}
@@ -210,7 +198,7 @@ const SandboxInteractive: React.FC = () => {
                   key={vo.id}
                   virtualObject={vo}
                   observer={observer}
-                  rooms={allRoomsWithData}
+                  rooms={[{ id: 'original', position: { x: 0, y: 0 }, reflectionOrder: 0, width: room.width, height: room.height, walls: room.mirroredWalls }, ...virtualRooms]}
                   roomSize={ROOM_SIZE}
                   roomWidth={room.width}
                   roomHeight={room.height}
