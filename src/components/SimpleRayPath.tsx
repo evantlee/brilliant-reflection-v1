@@ -204,7 +204,7 @@ const SimpleRayPath: React.FC<SimpleRayPathProps> = ({
         right: 0, 
         bottom: 0, 
         pointerEvents: 'none', 
-        zIndex: 1000, // Increased z-index to be above grid
+        zIndex: 9999, // Extremely high z-index to ensure rays are above everything
         transform: `translate(${offsetX}px, ${offsetY}px)`
       }}
     >
@@ -225,8 +225,8 @@ const SimpleRayPath: React.FC<SimpleRayPathProps> = ({
               x2={segment.end.x}
               y2={segment.end.y}
               stroke={getSegmentColor(segment.roomId, isVisible)}
-              strokeWidth={2}
-              strokeDasharray={isVisible ? '0' : '5,5'}
+              strokeWidth={1.5}
+              strokeDasharray={isVisible ? '0' : '4,4'}
             />
             
             {/* Add reflection points at segment boundaries (except for start and end points) */}
