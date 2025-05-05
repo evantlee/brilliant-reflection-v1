@@ -31,11 +31,12 @@ export interface Observer {
 }
 
 export interface RayPath {
-  points: Point[];
-  reflectionPoints: {
-    point: Point;
-    wallId: string;
-  }[];
+  segments: Array<{
+    start: Point;
+    end: Point;
+    roomId: string;
+  }>;
+  isVisible: boolean;
   virtualObjectId: string;
 }
 

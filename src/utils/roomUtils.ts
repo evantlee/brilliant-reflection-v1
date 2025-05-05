@@ -75,11 +75,37 @@ export const generateVirtualRooms = (
   const roomsById = new Map<string, RoomNode>();
   roomsById.set(originalRoom.id, rootNode);
   
+  // Track positions to avoid overlapping rooms
+  const positionMap = new Map<string, string[]>();
+  const posKey = `${originalRoom.position.x},${originalRoom.position.y}`;
+  positionMap.set(posKey, [originalRoom.id]);
+  
   // Recursively build the room tree
-  buildRoomTree(rootNode, maxOrder, roomsById);
+  buildRoomTree(rootNode, maxOrder, roomsById, positionMap);
   
   // Flatten tree into array of rooms
-  return flattenRoomTree(rootNode).filter(room => room.id !== originalRoom.id);
+  const virtualRooms = flattenRoomTree(rootNode).filter(room => room.id !== originalRoom.id);
+  
+  console.log(`Generated ${virtualRooms.length} virtual rooms after filtering out overlaps`);
+  
+  // Debug output to find any redundant rooms
+  const positionCounts = new Map<string, string[]>();
+  virtualRooms.forEach(room => {
+    const posKey = `${room.position.x},${room.position.y}`;
+    if (!positionCounts.has(posKey)) {
+      positionCounts.set(posKey, []);
+    }
+    positionCounts.get(posKey)!.push(room.id);
+  });
+  
+  // Log positions with multiple rooms (potential duplicates)
+  positionCounts.forEach((ids, pos) => {
+    if (ids.length > 1) {
+      console.warn(`DUPLICATE POSITION ALERT: Position ${pos} has ${ids.length} rooms: ${ids.join(', ')}`);
+    }
+  });
+  
+  return virtualRooms;
 };
 
 /**
@@ -89,11 +115,21 @@ const buildRoomTree = (
   node: RoomNode,
   maxOrder: number,
   roomsById: Map<string, RoomNode>,
+  positionMap: Map<string, string[]>,
   currentOrder: number = 0
 ): void => {
   if (currentOrder >= maxOrder) return;
   
   const { room } = node;
+  
+  // Find the original room (always the first room in the tree)
+  const originalRoom = Array.from(roomsById.values())
+    .find(node => node.room.reflectionOrder === 0)?.room;
+  
+  if (!originalRoom) {
+    console.error("Original room not found!");
+    return;
+  }
   
   console.log(`ROOM TREE DEBUG: Processing room ${room.id} at order ${currentOrder}, position (${room.position.x}, ${room.position.y})`);
   console.log(`ROOM TREE DEBUG: Room walls: top=${room.walls.top}, right=${room.walls.right}, bottom=${room.walls.bottom}, left=${room.walls.left}`);
@@ -110,6 +146,51 @@ const buildRoomTree = (
     
     // Calculate the position for the new virtual room
     const position = getVirtualRoomPosition(room, wall);
+    
+    // Check for position overlap using our positionMap
+    const posKey = `${position.x},${position.y}`;
+    const existingRoomsAtPos = positionMap.get(posKey) || [];
+    
+    // Skip if this would create a room at the position of the original room
+    // (except for direct reflections from the original room)
+    if (position.x === originalRoom.position.x && 
+        position.y === originalRoom.position.y && 
+        (currentOrder > 0 || room.reflectionOrder > 0)) {
+      console.log(`ROOM TREE DEBUG: Would create room at original position (${originalRoom.position.x},${originalRoom.position.y}), skipping`);
+      return;
+    }
+    
+    // If there are existing rooms at this position, only proceed if this would be a lower order room
+    if (existingRoomsAtPos.length > 0) {
+      // Find the lowest reflection order among existing rooms at this position
+      const lowestOrder = Math.min(...existingRoomsAtPos.map(id => {
+        const existingRoom = roomsById.get(id)?.room;
+        return existingRoom ? existingRoom.reflectionOrder : Infinity;
+      }));
+      
+      if (currentOrder + 1 >= lowestOrder) {
+        console.log(`ROOM TREE DEBUG: Position (${position.x}, ${position.y}) already has a lower or equal order room, skipping`);
+        return;
+      }
+      
+      // If we're allowing this room (because it has lower order), remove higher order rooms at this position
+      console.log(`ROOM TREE DEBUG: Replacing higher order rooms at position (${position.x}, ${position.y})`);
+      existingRoomsAtPos.forEach(id => {
+        const existingNode = roomsById.get(id);
+        if (!existingNode) return;
+        
+        if (existingNode.room.reflectionOrder > currentOrder + 1) {
+          // Remove this room and its descendants from the tree
+          if (existingNode.parent) {
+            existingNode.parent.children = existingNode.parent.children.filter(child => child !== existingNode);
+          }
+          // Remove from roomsById map
+          roomsById.delete(id);
+          // Remove from positionMap
+          positionMap.set(posKey, existingRoomsAtPos.filter(roomId => roomId !== id));
+        }
+      });
+    }
     
     // Create a virtual room
     const virtualRoom = createVirtualRoom(room, wall, position, currentOrder + 1);
@@ -133,8 +214,14 @@ const buildRoomTree = (
     node.children.push(childNode);
     roomsById.set(virtualRoom.id, childNode);
     
+    // Add to position map
+    if (!positionMap.has(posKey)) {
+      positionMap.set(posKey, []);
+    }
+    positionMap.get(posKey)!.push(virtualRoom.id);
+    
     // Continue building the tree from this node
-    buildRoomTree(childNode, maxOrder, roomsById, currentOrder + 1);
+    buildRoomTree(childNode, maxOrder, roomsById, positionMap, currentOrder + 1);
   };
   
   // Try to create a virtual room for each wall
