@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Point, PlacedObject, Room } from '../models/types';
 import { 
   distance, 
@@ -27,8 +27,6 @@ const SimpleRayPath: React.FC<SimpleRayPathProps> = ({
   roomWidth,
   roomHeight
 }) => {
-  const [showDebug, setShowDebug] = useState(false);
-  
   // Find the original room
   const originalRoom = rooms.find(r => r.reflectionOrder === 0);
   
@@ -119,46 +117,80 @@ const SimpleRayPath: React.FC<SimpleRayPathProps> = ({
     // No slabs -> direct line outside
     roomSegments = [{ start: virtualObjectGlobal, end: observerGlobal, roomId: 'outside' }];
   }
+  
+  // Get the lowest order room for each segment based on reflection order
+  const roomSegmentsWithLowestOrder = roomSegments.map(segment => {
+    // If it's the outside segment, keep it as is
+    if (segment.roomId === 'outside') return segment;
+    
+    // Find all rooms containing this point (midpoint of segment)
+    const midX = (segment.start.x + segment.end.x) / 2;
+    const midY = (segment.start.y + segment.end.y) / 2;
+    
+    // Find all rooms that contain this point
+    const containingRooms = allRooms.filter(room => {
+      const roomLeft = room.position.x * roomSize;
+      const roomRight = roomLeft + roomSize;
+      const roomTop = room.position.y * roomSize;
+      const roomBottom = roomTop + roomSize;
+      
+      return (
+        midX >= roomLeft && midX <= roomRight &&
+        midY >= roomTop && midY <= roomBottom
+      );
+    });
+    
+    // Sort by reflection order and get the lowest
+    if (containingRooms.length > 0) {
+      containingRooms.sort((a, b) => 
+        (a.reflectionOrder || Infinity) - (b.reflectionOrder || Infinity)
+      );
+      
+      const lowestOrderRoom = containingRooms[0];
+      return {
+        ...segment,
+        roomId: lowestOrderRoom.id
+      };
+    }
+    
+    return segment;
+  });
   // -- End segment generation --
-
-  // Helper for drawing arrow in debug view
-  const makeArrow = (start: Point, end: Point, color: string) => {
-    const angle = Math.atan2(end.y - start.y, end.x - start.x);
-    const arrowLen = 8;
-    const arrowWid = 4;
-    const tx = end.x;
-    const ty = end.y;
-    const bx = tx - arrowLen * Math.cos(angle);
-    const by = ty - arrowLen * Math.sin(angle);
-    const lx = bx - arrowWid * Math.sin(angle);
-    const ly = by + arrowWid * Math.cos(angle);
-    const rx = bx + arrowWid * Math.sin(angle);
-    const ry = by - arrowWid * Math.cos(angle);
-    return <polygon points={`${tx},${ty} ${lx},${ly} ${rx},${ry}`} fill={color} />;
-  };
 
   // Helper function to get color for a room segment
   const getSegmentColor = (roomId: string, isVisible: boolean): string => {
     if (!isVisible) return '#ffcccc'; // Light red for not visible
     
-    // For visible rays, use different colors for different rooms
-    if (roomId === originalRoom.id) return '#ff0000'; // Original room: red
-    if (roomId === virtualObject.roomId) return '#ff6600'; // Virtual object room: orange
+    // For outside segments
     if (roomId === 'outside') return '#ff00ff'; // Outside segments: magenta
     
-    // Other rooms get different colors based on position
-    const room = rooms.find(r => r.id === roomId);
-    if (room) {
-      if (room.position.x < 0) return '#00cc66'; // Left rooms: green
-      if (room.position.x > 0) return '#0099cc'; // Right rooms: blue
-      if (room.position.y < 0) return '#cc9900'; // Top rooms: yellow
-      if (room.position.y > 0) return '#cc00cc'; // Bottom rooms: purple
-    }
+    // For original room
+    if (roomId === 'original') return '#ff9900'; // Original room: orange
     
-    // Fallback colors
-    const roomIndex = parseInt(roomId.replace(/[^\d]/g, '')) || 0;
-    const colors = ['#ff3300', '#ff9900', '#66cc00', '#0099ff', '#9900cc'];
-    return colors[roomIndex % colors.length];
+    // For virtual rooms, extract the reflection order from the room ID
+    const getReflectionOrder = (id: string): number => {
+      if (id === 'original') return 0;
+      
+      // Extract reflection order from room ID format like "original-top-1" or "original-left-1-right-2"
+      // Count the number of wall reference segments (e.g., "top-1", "left-1")
+      const segments = id.split('-');
+      // Every pair after "original" represents one reflection
+      // Number of reflections is (segments.length - 1) / 2
+      return Math.floor((segments.length - 1) / 2);
+    };
+    
+    const reflectionOrder = getReflectionOrder(roomId);
+    
+    // Color based on reflection order
+    switch (reflectionOrder) {
+      case 0: return '#ff9900'; // Original: orange
+      case 1: return '#0099ff'; // 1st order: blue
+      case 2: return '#00cc66'; // 2nd order: green
+      case 3: return '#cc00cc'; // 3rd order: purple
+      case 4: return '#cccc00'; // 4th order: yellow
+      case 5: return '#999999'; // 5th order: gray
+      default: return '#333333'; // Higher orders: dark gray
+    }
   };
 
   // Render directly in the component tree with absolute positioning and offset compensation
@@ -172,7 +204,7 @@ const SimpleRayPath: React.FC<SimpleRayPathProps> = ({
         right: 0, 
         bottom: 0, 
         pointerEvents: 'none', 
-        zIndex: 150,
+        zIndex: 1000, // Increased z-index to be above grid
         transform: `translate(${offsetX}px, ${offsetY}px)`
       }}
     >
@@ -184,30 +216,8 @@ const SimpleRayPath: React.FC<SimpleRayPathProps> = ({
           overflow: 'visible'
         }}
       >
-        {/* Debug room boundaries */}
-        {showDebug && rooms.map(room => {
-          const roomLeft = room.position.x * roomSize;
-          const roomRight = roomLeft + roomSize;
-          const roomTop = room.position.y * roomSize;
-          const roomBottom = roomTop + roomSize;
-          
-          return (
-            <rect
-              key={`room-${room.id}`}
-              x={roomLeft}
-              y={roomTop}
-              width={roomSize}
-              height={roomSize}
-              fill="none"
-              stroke={room.id === originalRoom.id ? "#ff0000" : "#00cccc"}
-              strokeWidth={1}
-              strokeDasharray="5,5"
-            />
-          );
-        })}
-        
         {/* Draw all ray segments */}
-        {roomSegments.map((segment, index) => (
+        {roomSegmentsWithLowestOrder.map((segment, index) => (
           <g key={index}>
             <line
               x1={segment.start.x}
@@ -215,35 +225,20 @@ const SimpleRayPath: React.FC<SimpleRayPathProps> = ({
               x2={segment.end.x}
               y2={segment.end.y}
               stroke={getSegmentColor(segment.roomId, isVisible)}
-              strokeWidth={showDebug ? 3 : 2}
+              strokeWidth={2}
               strokeDasharray={isVisible ? '0' : '5,5'}
             />
-            {showDebug && makeArrow(segment.start, segment.end, getSegmentColor(segment.roomId, isVisible))}
             
-            {/* Segment labels with larger text for better visibility */}
-            {showDebug && (
-              <g>
-                <circle
-                  cx={(segment.start.x + segment.end.x) / 2}
-                  cy={(segment.start.y + segment.end.y) / 2}
-                  r={10}
-                  fill="white"
-                  fillOpacity="0.9"
-                  stroke={getSegmentColor(segment.roomId, isVisible)}
-                  strokeWidth={2}
-                />
-                <text
-                  x={(segment.start.x + segment.end.x) / 2}
-                  y={(segment.start.y + segment.end.y) / 2 + 4}
-                  textAnchor="middle"
-                  fontSize="10"
-                  fontWeight="bold"
-                  fontFamily="Arial, sans-serif"
-                  fill={getSegmentColor(segment.roomId, isVisible)}
-                >
-                  {index}
-                </text>
-              </g>
+            {/* Add reflection points at segment boundaries (except for start and end points) */}
+            {index > 0 && (
+              <circle
+                cx={segment.start.x}
+                cy={segment.start.y}
+                r={5} // Increased size for better visibility
+                fill="white"
+                stroke={getSegmentColor(segment.roomId, isVisible)}
+                strokeWidth={2}
+              />
             )}
           </g>
         ))}
@@ -261,7 +256,7 @@ const SimpleRayPath: React.FC<SimpleRayPathProps> = ({
           cx={observerGlobal.x}
           cy={observerGlobal.y}
           r={5}
-          fill={isVisible ? '#ff0000' : '#ffcccc'}
+          fill={isVisible ? '#ff9900' : '#ffcccc'} 
           stroke="white"
           strokeWidth={2}
         />
@@ -276,65 +271,19 @@ const SimpleRayPath: React.FC<SimpleRayPathProps> = ({
             rx="4"
             fill="white"
             fillOpacity="0.8"
-            stroke={isVisible ? '#ff0000' : '#ffcccc'}
+            stroke={isVisible ? '#ff9900' : '#ffcccc'}
           />
           <text
             textAnchor="middle"
             y="5"
             fontSize="12"
             fontFamily="Arial, sans-serif"
-            fill={isVisible ? '#ff0000' : '#ffcccc'}
+            fill={isVisible ? '#ff9900' : '#ffcccc'}
           >
             {isVisible ? 'VISIBLE' : 'NOT VISIBLE'}
           </text>
         </g>
       </svg>
-      
-      {/* Debug toggle button - only this element has pointer events */}
-      <div 
-        style={{ 
-          position: 'absolute',
-          top: 10,
-          left: 10,
-          width: 36,
-          height: 36,
-          backgroundColor: showDebug ? 'rgba(255,100,100,0.9)' : 'rgba(100,100,255,0.9)',
-          borderRadius: '50%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: 'white',
-          fontWeight: 'bold',
-          fontSize: '20px',
-          cursor: 'pointer',
-          pointerEvents: 'auto',
-          zIndex: 100,
-          boxShadow: '0 0 5px rgba(0,0,0,0.3)',
-          border: '2px solid white'
-        }}
-        onClick={() => setShowDebug(!showDebug)}
-      >
-        ?
-      </div>
-      
-      {/* Debug mode banner - no pointer events */}
-      {showDebug && (
-        <div style={{ 
-          position: 'absolute',
-          top: 10,
-          left: 60,
-          backgroundColor: 'rgba(255,255,255,0.9)',
-          border: '1px solid #000',
-          padding: '5px 10px',
-          zIndex: 99,
-          borderRadius: '5px',
-          boxShadow: '0 0 5px rgba(0,0,0,0.2)'
-        }}>
-          <div>Debug Mode: ON</div>
-          <div>Orange: Virtual Object Room</div>
-          <div>Red: Original Room, Magenta: Outside</div>
-        </div>
-      )}
     </div>
   );
 };

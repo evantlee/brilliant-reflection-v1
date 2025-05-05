@@ -79,7 +79,11 @@ export const generateVirtualRooms = (
   buildRoomTree(rootNode, maxOrder, roomsById);
   
   // Flatten tree into array of rooms
-  return flattenRoomTree(rootNode).filter(room => room.id !== originalRoom.id);
+  const virtualRooms = flattenRoomTree(rootNode).filter(room => room.id !== originalRoom.id);
+  
+  console.log(`Generated ${virtualRooms.length} virtual rooms after filtering out overlaps`);
+  
+  return virtualRooms;
 };
 
 /**
@@ -118,6 +122,32 @@ const buildRoomTree = (
     if (roomsById.has(virtualRoom.id)) {
       console.log(`ROOM TREE DEBUG: Room with ID ${virtualRoom.id} already exists, skipping`);
       return;
+    }
+    
+    // Find any rooms at the same position
+    const roomsAtPosition = Array.from(roomsById.values()).filter(existingNode => 
+      existingNode.room.position.x === position.x && 
+      existingNode.room.position.y === position.y
+    );
+    
+    // Skip if this would create a room at the position of the original room
+    // (except for direct reflections from the original room)
+    if (position.x === 0 && position.y === 0 && currentOrder > 0) {
+      console.log(`ROOM TREE DEBUG: Would create room at original position (0,0), skipping`);
+      return;
+    }
+    
+    // Skip if there's a room at this position with lower reflection order
+    if (roomsAtPosition.length > 0) {
+      const lowestOrderRoom = roomsAtPosition.reduce((lowest, current) => 
+        (current.room.reflectionOrder < lowest.room.reflectionOrder) ? current : lowest, 
+        roomsAtPosition[0]
+      );
+      
+      if (currentOrder + 1 > lowestOrderRoom.room.reflectionOrder) {
+        console.log(`ROOM TREE DEBUG: Position (${position.x}, ${position.y}) already has a lower order room ${lowestOrderRoom.room.id}, skipping`);
+        return;
+      }
     }
     
     console.log(`ROOM TREE DEBUG: Creating new virtual room at position (${position.x}, ${position.y}) via ${wall} reflection`);
