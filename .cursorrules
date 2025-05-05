@@ -1,0 +1,58 @@
+// Reflection Sandbox - Interactive visualization for optics learning
+// This file contains guidance for AI tools when working with this codebase
+
+// Project Context
+This project is an educational visualization tool that demonstrates how light reflections and virtual images work.
+The application helps learners understand optics by showing how virtual rooms can be created through reflective surfaces
+and how rays can be traced from virtual objects back to observers.
+
+// Key Components
+- Room: A grid-based container with configurable mirrored walls
+- VirtualRoom: Reflections of the original room across mirrored surfaces
+- Object/Observer: Items that can be placed in the environment
+- RayPath: Visualization of light rays between objects and observer
+- Folding: Animation that shows how virtual straight-line paths map to real zigzag paths
+
+// Code Patterns
+- Use TypeScript with React functional components and hooks
+- Prioritize readability and clear documentation
+- Maintain clean separation between UI components and core logic
+- Use custom hooks to manage complex state interactions
+- Use utility functions for mathematical operations
+
+// Styling Guidelines
+- Use CSS modules for component-specific styles
+- Follow BEM naming convention for CSS classes
+- Maintain consistent color scheme:
+  - Original room: black border
+  - Virtual rooms: cyan border
+  - Objects: magenta 'x' markers
+  - Observer: purple circle
+  - Ray paths: red lines
+
+// Math / Physics Guidelines
+- All reflection calculations should follow the law of reflection (angle of incidence = angle of reflection)
+- Higher-order reflections need special care to handle overlapping virtual rooms
+- The ray tracing algorithm should validate that rays only pass through mirrored surfaces
+
+// Animation Guidelines
+- Use Anime.js for smooth animations
+- Folding animations should clearly show the connection between virtual and real paths
+- Maintain perspective during 3D transformations
+- Performance considerations for complex scenes with many reflections
+
+// File Structure
+- `/src/components`: UI components
+- `/src/hooks`: Custom React hooks
+- `/src/utils`: Helper functions
+- `/src/models`: TypeScript interfaces
+
+// Commenting Standards
+- Add JSDoc comments for all functions and components
+- Explain complex mathematical operations with comments
+- Include references to the optics concepts being demonstrated where appropriate
+
+// Developer Notes
+- The room tree structure is important for tracking ancestry of virtual rooms
+- Ray validation is critical to ensure physical correctness
+- The folding animation is the key educational component

@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useOpticsSandbox } from './api';
-import { Room } from './components';
+import { Room, ClickableVirtualObject } from './components';
 
 function configToRoom(config: any) {
   return {
@@ -27,19 +27,48 @@ const SandboxInteractive: React.FC = () => {
     return vr && vr.reflectionOrder <= currentOrder;
   });
 
-  // Debug: Log room and object coordinates
-  console.log('Original Room:', { position: { x: 0, y: 0 } });
-  console.log('Virtual Rooms:', visibleVirtualRooms.map(vr => ({ 
-    id: vr.id, 
-    position: vr.position,
-    reflectionWall: vr.reflectionWall,
-    reflectionOrder: vr.reflectionOrder
-  })));
-  console.log('Virtual Objects:', visibleVirtualObjects.map(vo => ({
-    id: vo.id,
-    roomId: vo.roomId,
-    position: vo.position
-  })));
+  // Log diagnostic information when component mounts or when rooms/observer changes
+  useEffect(() => {
+    console.log('-------- DIAGNOSTIC INFORMATION --------');
+    console.log('Original Room:', { 
+      position: { x: 0, y: 0 },
+      width: room.width,
+      height: room.height,
+      walls: room.mirroredWalls
+    });
+    console.log('Observer:', observer);
+    console.log('Virtual Rooms:', visibleVirtualRooms);
+    console.log('Virtual Objects:', visibleVirtualObjects);
+    
+    // Log room size and positions
+    console.log('Room Size:', ROOM_SIZE);
+    console.log('Room Grid Size:', { width: room.width, height: room.height });
+    
+    // Log absolute coordinates of rooms
+    const allRoomsWithPositions = [
+      { id: 'original', position: { x: 0, y: 0 }, isOriginal: true },
+      ...visibleVirtualRooms.map(vr => ({ 
+        id: vr.id, 
+        position: { 
+          x: vr.position.x * ROOM_SIZE,
+          y: vr.position.y * ROOM_SIZE
+        },
+        isOriginal: false
+      }))
+    ];
+    console.log('Room Absolute Positions:', allRoomsWithPositions);
+    
+    // Log observer absolute position
+    if (observer) {
+      const observerAbsolute = {
+        x: (observer.position.x + 0.5) * (ROOM_SIZE / room.width),
+        y: (observer.position.y + 0.5) * (ROOM_SIZE / room.height)
+      };
+      console.log('Observer Absolute Position:', observerAbsolute);
+    }
+    
+    console.log('----------------------------------------');
+  }, [room, observer, virtualRooms, visibleVirtualRooms, visibleVirtualObjects]);
 
   // --- Dynamic bounding box calculation ---
   // Include the original room at (0,0)
@@ -80,6 +109,12 @@ const SandboxInteractive: React.FC = () => {
   return (
     <div className="app">
       <h1>Reflection Sandbox</h1>
+      
+      <div className="instructions" style={{ marginBottom: 16, padding: '10px', background: '#f5f5f5', borderRadius: '4px' }}>
+        <p>Click on any pink "×" virtual object to draw a direct ray from that object to the observer.</p>
+        <p>The ray will appear <strong style={{ color: 'red' }}>red</strong> if the observer can see the virtual object through the original room, or <strong style={{ color: '#ffcccc' }}>light red</strong> if it's out of sight.</p>
+      </div>
+      
       <div style={{ marginBottom: 16 }}>
         <button onClick={() => setCurrentOrder(Math.max(1, currentOrder - 1))} disabled={currentOrder === 1}>Previous</button>
         <button onClick={() => setCurrentOrder(Math.min(reflectionOrder, currentOrder + 1))} disabled={currentOrder === reflectionOrder}>Next</button>
@@ -133,7 +168,7 @@ const SandboxInteractive: React.FC = () => {
                 width: ROOM_SIZE,
                 height: ROOM_SIZE,
                 zIndex: 1,
-                pointerEvents: 'none',
+                // Remove pointer-events: none from here to allow clicks on virtual objects
               }}
             >
               {/* Debug: Show room position */}
@@ -149,33 +184,26 @@ const SandboxInteractive: React.FC = () => {
                 {`Room: (${vr.position.x}, ${vr.position.y}) ${vr.reflectionWall} Order: ${vr.reflectionOrder}`}
               </div>
               
-              <Room
-                room={vr}
-                objects={[]}
-                isInteractive={false}
-              />
-              {/* Virtual object in this room */}
-              {visibleVirtualObjects.filter(o => o.roomId === vr.id).map(vo => (
-                <div
+              <div style={{ pointerEvents: 'none' }}>
+                <Room
+                  room={vr}
+                  objects={[]}
+                  isInteractive={false}
+                />
+              </div>
+              
+              {/* Virtual objects in this room - now using ClickableVirtualObject */}
+              {visibleVirtualObjects.filter(vo => vo.roomId === vr.id).map(vo => (
+                <ClickableVirtualObject
                   key={vo.id}
-                  className="object virtual"
+                  virtualObject={vo}
+                  observer={observer}
+                  rooms={[{ id: 'original', position: { x: 0, y: 0 }, reflectionOrder: 0, width: room.width, height: room.height, walls: room.mirroredWalls }, ...virtualRooms]}
+                  roomSize={ROOM_SIZE}
+                  roomWidth={room.width}
+                  roomHeight={room.height}
                   style={getCellPosition(vo.position, vr)}
-                >
-                  ×
-                  {/* Debug: Show object position */}
-                  <span style={{
-                    position: 'absolute',
-                    fontSize: '8px',
-                    color: '#f06',
-                    top: '10px',
-                    left: 0,
-                    whiteSpace: 'nowrap',
-                    backgroundColor: 'rgba(255,255,255,0.7)',
-                    padding: '1px'
-                  }}>
-                    {`(${vo.position.x.toFixed(1)}, ${vo.position.y.toFixed(1)})`}
-                  </span>
-                </div>
+                />
               ))}
             </div>
           ))}
