@@ -575,17 +575,21 @@ export const foldRayPath = (
  * @param rayPoints The original ray path points
  * @param startRoom The starting room for the folding sequence
  * @param endRoom The target room (usually the original room)
+ * @param rooms All rooms in the system
+ * @param roomSize Size of each room square 
  * @returns An array of fold operations to perform
  */
 export const generateFoldingSequence = (
   rayPoints: Point[],
   startRoom: Room,
-  endRoom: Room
+  endRoom: Room,
+  rooms: Room[],
+  roomSize: number
 ): { wall: 'top' | 'right' | 'bottom' | 'left', roomPosition: Point }[] => {
   const foldingSequence: { wall: 'top' | 'right' | 'bottom' | 'left', roomPosition: Point }[] = [];
   
   // Simple case: determine direction to original room
-  const currentPosition = { ...startRoom.position };
+  let currentPosition = { ...startRoom.position };
   const targetPosition = { ...endRoom.position };
   
   // Keep folding until we reach the target position

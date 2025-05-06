@@ -113,6 +113,7 @@ const SandboxInteractive: React.FC = () => {
       <div className="instructions" style={{ marginBottom: 16, padding: '10px', background: '#f5f5f5', borderRadius: '4px' }}>
         <p>Click on any pink "×" virtual object to draw a direct ray from that object to the observer.</p>
         <p>The ray will appear <strong style={{ color: 'red' }}>red</strong> if the observer can see the virtual object through the original room, or <strong style={{ color: '#ffcccc' }}>light red</strong> if it's out of sight.</p>
+        <p><strong>Folding Feature:</strong> Once you select a virtual object, use the <strong style={{ color: '#00c8ff' }}>blue arrow buttons</strong> to fold the ray path along walls, guiding it back to the original room. Each fold brings you closer to seeing how the ray actually travels in physical space.</p>
       </div>
       
       <div style={{ marginBottom: 16 }}>

@@ -1,0 +1,72 @@
+.folding-controls {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 100;
+}
+
+.arrow {
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background-color: rgba(0, 200, 255, 0.8);
+  color: white;
+  font-size: 18px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: 2px solid white;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+  pointer-events: auto !important;
+  transition: transform 0.2s ease, background-color 0.2s ease;
+  z-index: 1000;
+}
+
+.arrow:hover {
+  transform: scale(1.2);
+  background-color: rgba(0, 180, 255, 1);
+}
+
+.arrow.top {
+  top: -40px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.arrow.right {
+  right: -40px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.arrow.bottom {
+  bottom: -40px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.arrow.left {
+  left: -40px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.arrow.top:hover {
+  transform: translateX(-50%) scale(1.2);
+}
+
+.arrow.right:hover {
+  transform: translateY(-50%) scale(1.2);
+}
+
+.arrow.bottom:hover {
+  transform: translateX(-50%) scale(1.2);
+}
+
+.arrow.left:hover {
+  transform: translateY(-50%) scale(1.2);
+} 

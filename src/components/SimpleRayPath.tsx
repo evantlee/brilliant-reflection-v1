@@ -1,6 +1,7 @@
 import React from 'react';
 import { Point, PlacedObject, Room } from '../models/types';
 import { 
+  distance, 
   findRayRoomIntersections, 
   lineIntersectsRectangle 
 } from '../utils/rayUtils';
