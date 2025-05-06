@@ -26,6 +26,7 @@ export interface OpticsSandboxConfig {
   room?: Partial<RoomConfig>;
   object?: ObjectConfig;
   observer?: ObserverConfig;
+  reflectionOrder?: number;
   // Extend with more config options as needed
 }
 

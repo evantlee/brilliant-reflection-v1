@@ -570,21 +570,15 @@ export const foldRayPath = (
 };
 
 /**
- * Generate the folding sequence for a ray path
+ * Generates a sequence of folding operations to transform a virtual room back to the original
  * 
- * @param rayPoints The original ray path points
  * @param startRoom The starting room for the folding sequence
  * @param endRoom The target room (usually the original room)
- * @param rooms All rooms in the system
- * @param roomSize Size of each room square 
  * @returns An array of fold operations to perform
  */
 export const generateFoldingSequence = (
-  rayPoints: Point[],
   startRoom: Room,
-  endRoom: Room,
-  rooms: Room[],
-  roomSize: number
+  endRoom: Room
 ): { wall: 'top' | 'right' | 'bottom' | 'left', roomPosition: Point }[] => {
   const foldingSequence: { wall: 'top' | 'right' | 'bottom' | 'left', roomPosition: Point }[] = [];
   
@@ -673,4 +667,14 @@ export const isFoldValid = (
     default:
       return false;
   }
+};
+
+/**
+ * Helper function to apply folding transforms to a ray point
+ */
+export const applyFoldingToRayPoint = (
+  point: Point
+): Point => {
+  // Simple implementation that returns the input point
+  return { ...point };
 };

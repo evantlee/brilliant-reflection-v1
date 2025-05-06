@@ -1,4 +1,4 @@
-import React, { forwardRef } from 'react';
+import { forwardRef } from 'react';
 import Room from './Room';
 import { Room as RoomType, PlacedObject } from '../models/types';
 

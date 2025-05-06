@@ -18,7 +18,6 @@ import {
   ObserverConfig,
   OpticsSandboxConfig,
   OpticsSandboxState,
-  OpticsSandboxAPI
 } from './OpticsSandboxTypes';
 import { generateVirtualRooms } from '../utils/roomUtils';
 import { placeVirtualObjects, testReflectionTransformations } from '../utils/reflectionUtils';
@@ -40,14 +39,6 @@ const getDefaultObserver = (room: RoomConfig): ObserverConfig => ({
   position: { x: Math.floor(room.width / 2), y: room.height }, // just below the room, centered
 });
 
-const defaultState: OpticsSandboxState = {
-  room: defaultRoom,
-  observer: getDefaultObserver(defaultRoom),
-  virtualRooms: [],
-  virtualObjects: [],
-  reflectionOrder: 3,
-};
-
 const OpticsSandboxContext = createContext<{
   state: OpticsSandboxState;
   setRoom: (config: Partial<RoomConfig>) => void;
@@ -58,14 +49,14 @@ const OpticsSandboxContext = createContext<{
 
 export const OpticsSandboxProvider: React.FC<{ config?: OpticsSandboxConfig; children: React.ReactNode }> = ({ config, children }) => {
   const initialRoom = { ...defaultRoom, ...config?.room };
-  const [reflectionOrder, setReflectionOrder] = useState<number>(3);
+  const [reflectionOrder, setReflectionOrder] = useState<number>(config?.reflectionOrder || 3);
   const [state, setState] = useState<OpticsSandboxState>({
     room: initialRoom,
     object: config?.object && config?.object.position ? config.object : undefined,
     observer: config?.observer || getDefaultObserver(initialRoom),
     virtualRooms: [],
     virtualObjects: [],
-    reflectionOrder: 3,
+    reflectionOrder: config?.reflectionOrder || 3,
   });
 
   // Recalculate virtual rooms and objects when room, object, or reflectionOrder changes

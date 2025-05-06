@@ -1,5 +1,5 @@
 import React from 'react';
-import { Point, Room } from '../models/types';
+import { Room } from '../models/types';
 import '../styles/FoldingControls.css';
 
 interface FoldingControlsProps {

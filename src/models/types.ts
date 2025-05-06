@@ -36,6 +36,11 @@ export interface RayPath {
     end: Point;
     roomId: string;
   }>;
+  points?: Point[];
+  reflectionPoints?: Array<{
+    point: Point;
+    wallId: string;
+  }>;
   isVisible: boolean;
   virtualObjectId: string;
 }

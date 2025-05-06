@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { PlacedObject, Point, Room, FoldingState } from '../models/types';
 import SimpleRayPath from './SimpleRayPath';
 import FoldingControls from './FoldingControls';
-import { foldRayPath, isPointBehindWall, extractPointsFromSegments } from '../utils/foldingUtils';
+import { foldRayPath } from '../utils/foldingUtils';
 import { findRayRoomIntersections } from '../utils/rayUtils';
 
 interface ClickableVirtualObjectProps {
@@ -223,7 +223,7 @@ const ClickableVirtualObject: React.FC<ClickableVirtualObjectProps> = ({
     const points: Point[] = [];
     
     // Make sure to include ALL segment endpoints for a complete path
-    rayPathSegments.forEach((segment, index) => {
+    rayPathSegments.forEach((segment) => {
       // Always add start point
       points.push(segment.start);
       

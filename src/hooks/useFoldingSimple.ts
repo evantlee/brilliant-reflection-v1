@@ -1,8 +1,6 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef } from 'react';
 import { Room, RayPath, FoldingState, Point } from '../models/types';
 import { 
-  calculateTransformOrigin, 
-  getRotationForWall, 
   getFoldingSequence,
   reflectPointOverWall,
   getFoldProgress
@@ -37,34 +35,13 @@ export const useFoldingSimple = (
   const roomSize = 300;
   
   // Memoize the folding sequence calculation
-  const foldingSequence = useMemo(() => {
-    if (rayPath) {
-      return getFoldingSequence(rayPath, rooms, originalRoomId, roomSize);
-    }
-    return [];
-  }, [rayPath, rooms, originalRoomId, roomSize]);
+  const foldingSequence = rayPath ? getFoldingSequence(rayPath, rooms, originalRoomId, roomSize) : [];
   
   // Track if animation is in progress
   const animationInProgressRef = useRef<boolean>(false);
   
   // Track transformed ray segments during folding
   const [transformedRayPoints, setTransformedRayPoints] = useState<Point[]>([]);
-  
-  // Original segments by room ID for quick lookup
-  const segmentsByRoomId = useMemo(() => {
-    if (!rayPath || !rayPath.segments) return new Map();
-    
-    const map = new Map<string, { start: Point, end: Point }[]>();
-    
-    rayPath.segments.forEach(segment => {
-      if (!map.has(segment.roomId)) {
-        map.set(segment.roomId, []);
-      }
-      map.get(segment.roomId)?.push({ start: segment.start, end: segment.end });
-    });
-    
-    return map;
-  }, [rayPath]);
   
   // Register a room element
   const registerRoomRef = (roomId: string, element: HTMLElement | null) => {
@@ -73,16 +50,6 @@ export const useFoldingSimple = (
     } else {
       roomRefs.current.delete(roomId);
     }
-  };
-  
-  // Set up CSS properties for an element
-  const setElementStyle = (
-    element: HTMLElement, 
-    properties: Record<string, string>
-  ) => {
-    Object.entries(properties).forEach(([key, value]) => {
-      element.style[key as any] = value;
-    });
   };
   
   // Calculate transformed points for a specific folding step and progress
@@ -100,9 +67,6 @@ export const useFoldingSimple = (
       end: { ...segment.end },
       roomId: segment.roomId
     }));
-    
-    // Current folding step data
-    const currentFoldData = foldingSequence[currentStep];
     
     // Find segments that need transformation and those that don't
     const segmentsToTransform = [];
