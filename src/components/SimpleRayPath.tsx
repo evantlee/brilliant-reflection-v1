@@ -1,7 +1,6 @@
 import React from 'react';
 import { Point, PlacedObject, Room } from '../models/types';
 import { 
-  distance, 
   findRayRoomIntersections, 
   lineIntersectsRectangle 
 } from '../utils/rayUtils';
@@ -16,14 +15,6 @@ interface SimpleRayPathProps {
   transformedRayPoints?: Point[];
   foldingState?: 'unfolded' | 'folding' | 'folded';
   currentFoldingStep?: number;
-}
-
-// Add a RaySegment interface
-interface RaySegment {
-  start: Point;
-  end: Point;
-  roomId: string;
-  segmentIndex?: number;
 }
 
 /**
@@ -91,93 +82,90 @@ const SimpleRayPath: React.FC<SimpleRayPathProps> = ({
     { x: originalRoomRight, y: originalRoomBottom }
   );
 
-  // Generate segments for normal (unfolded) state
-  const generateNormalSegments = (): RaySegment[] => {
-    // Direction vector from object to observer
-    const dx = observerGlobal.x - virtualObjectGlobal.x;
-    const dy = observerGlobal.y - virtualObjectGlobal.y;
+  // After computing midX, midY
+  const midX = (virtualObjectGlobal.x + observerGlobal.x) / 2;
+  const midY = (virtualObjectGlobal.y + observerGlobal.y) / 2;
 
-    // Get parametric intervals for each room intersection
-    const slabs = findRayRoomIntersections(
-      virtualObjectGlobal,
-      observerGlobal,
-      rooms,
-      roomSize
-    );
+  // -- Start slab-based segment generation --
+  // Combine original and virtual rooms
+  const allRooms = [originalRoom, ...rooms.filter(r => r.id !== originalRoom.id)];
+  
+  // Get parametric intervals for each room
+  const slabs = findRayRoomIntersections(
+    virtualObjectGlobal,
+    observerGlobal,
+    allRooms,
+    roomSize
+  );
 
-    // Build segments for each slab
-    let segments = slabs.map(({ t0, t1, roomId }) => ({
-      start: { x: virtualObjectGlobal.x + dx * t0, y: virtualObjectGlobal.y + dy * t0 },
-      end: { x: virtualObjectGlobal.x + dx * t1, y: virtualObjectGlobal.y + dy * t1 },
-      roomId
-    }));
+  // Direction vector from object to observer
+  const dx = observerGlobal.x - virtualObjectGlobal.x;
+  const dy = observerGlobal.y - virtualObjectGlobal.y;
 
-    // Add final outside segment if ray continues beyond last slab
-    if (slabs.length > 0) {
-      const lastT = slabs[slabs.length - 1].t1;
-      if (lastT < 1) {
-        segments.push({
-          start: { x: virtualObjectGlobal.x + dx * lastT, y: virtualObjectGlobal.y + dy * lastT },
-          end: observerGlobal,
-          roomId: 'outside'
-        });
-      }
-    } else {
-      // No slabs -> direct line outside
-      segments = [{ start: virtualObjectGlobal, end: observerGlobal, roomId: 'outside' }];
+  // Build segments for each slab
+  let roomSegments = slabs.map(({ t0, t1, roomId }) => ({
+    start: { x: virtualObjectGlobal.x + dx * t0, y: virtualObjectGlobal.y + dy * t0 },
+    end: { x: virtualObjectGlobal.x + dx * t1, y: virtualObjectGlobal.y + dy * t1 },
+    roomId
+  }));
+
+  // Add final outside segment if ray continues beyond last slab
+  if (slabs.length > 0) {
+    const lastT = slabs[slabs.length - 1].t1;
+    if (lastT < 1) {
+      roomSegments.push({
+        start: { x: virtualObjectGlobal.x + dx * lastT, y: virtualObjectGlobal.y + dy * lastT },
+        end: observerGlobal,
+        roomId: 'outside'
+      });
     }
-
-    return segments;
-  };
-
-  // Generate segments for folded state based on transformed points
-  const generateFoldedSegments = (): RaySegment[] => {
-    // If no transformed points, return empty array
-    if (!transformedRayPoints || transformedRayPoints.length === 0) {
-      return [];
+  } else {
+    // No slabs -> direct line outside
+    roomSegments = [{ start: virtualObjectGlobal, end: observerGlobal, roomId: 'outside' }];
+  }
+  
+  // Get the lowest order room for each segment based on reflection order
+  const roomSegmentsWithLowestOrder = roomSegments.map(segment => {
+    // If it's the outside segment, keep it as is
+    if (segment.roomId === 'outside') return segment;
+    
+    // Find all rooms containing this point (midpoint of segment)
+    const midX = (segment.start.x + segment.end.x) / 2;
+    const midY = (segment.start.y + segment.end.y) / 2;
+    
+    // Find all rooms that contain this point
+    const containingRooms = allRooms.filter(room => {
+      const roomLeft = room.position.x * roomSize;
+      const roomRight = roomLeft + roomSize;
+      const roomTop = room.position.y * roomSize;
+      const roomBottom = roomTop + roomSize;
+      
+      return (
+        midX >= roomLeft && midX <= roomRight &&
+        midY >= roomTop && midY <= roomBottom
+      );
+    });
+    
+    // Sort by reflection order and get the lowest
+    if (containingRooms.length > 0) {
+      containingRooms.sort((a, b) => 
+        (a.reflectionOrder || Infinity) - (b.reflectionOrder || Infinity)
+      );
+      
+      const lowestOrderRoom = containingRooms[0];
+      return {
+        ...segment,
+        roomId: lowestOrderRoom.id
+      };
     }
-
-    // Create segments from pairs of points
-    const segments = [];
-    for (let i = 0; i < transformedRayPoints.length; i += 2) {
-      if (i + 1 < transformedRayPoints.length) {
-        segments.push({
-          start: transformedRayPoints[i],
-          end: transformedRayPoints[i + 1],
-          roomId: 'folded',
-          segmentIndex: Math.floor(i / 2)
-        });
-      }
-    }
-
-    return segments;
-  };
-
-  // Determine which segments to display based on folding state
-  const displaySegments = foldingState === 'unfolded' 
-    ? generateNormalSegments() 
-    : generateFoldedSegments();
+    
+    return segment;
+  });
+  // -- End segment generation --
 
   // Helper function to get color for a room segment
-  const getSegmentColor = (roomId: string, segmentIndex?: number): string => {
+  const getSegmentColor = (roomId: string, isVisible: boolean): string => {
     if (!isVisible) return '#ffcccc'; // Light red for not visible
-    
-    // For folded segments during folding
-    if (roomId === 'folded') {
-      // Create a gradient of colors based on segment index
-      if (segmentIndex !== undefined) {
-        // More vibrant colors with better differentiation for folded segments
-        const colors = [
-          '#ff3300', // Bright red 
-          '#ff9900', // Orange
-          '#33cc33', // Green
-          '#3399ff', // Blue
-          '#9933ff', // Purple
-        ];
-        return colors[segmentIndex % colors.length];
-      }
-      return '#ff3300'; // Default red for folded segments
-    }
     
     // For outside segments
     if (roomId === 'outside') return '#ff00ff'; // Outside segments: magenta
@@ -211,140 +199,187 @@ const SimpleRayPath: React.FC<SimpleRayPathProps> = ({
     }
   };
 
-  // Determine junction point size based on importance
-  const getPointSize = (index: number): number => {
-    // Highlight intersection points (which should be every other point)
-    const isIntersection = index % 2 !== 0;
-    
-    // Make intersection points larger
-    return isIntersection ? 6 : 4;
-  };
-
-  // Determine junction point color
-  const getPointColor = (index: number): string => {
-    // Highlight intersection points
-    const isIntersection = index % 2 !== 0;
-    return isIntersection ? '#ffff00' : '#ff0000';
-  };
-
-  // Render directly in the component tree with absolute positioning and offset compensation
+  // Render directly in the component tree with absolute positioning
   return (
     <div 
       className="ray-path-container" 
       style={{ 
-        position: 'absolute', 
-        top: 0, 
-        left: 0, 
-        right: 0, 
-        bottom: 0, 
-        pointerEvents: 'none', 
-        zIndex: 9999, // Extremely high z-index to ensure rays are above everything
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        pointerEvents: 'none',
+        zIndex: 30,
         transform: `translate(${offsetX}px, ${offsetY}px)`
       }}
     >
-      <svg 
-        className="ray-path" 
-        style={{ 
-          width: '100%', 
-          height: '100%', 
-          overflow: 'visible'
-        }}
-      >
-        {/* Draw all ray segments */}
-        {displaySegments.map((segment, index) => (
-          <g key={index}>
-            <line
-              x1={segment.start.x}
-              y1={segment.start.y}
-              x2={segment.end.x}
-              y2={segment.end.y}
-              stroke={getSegmentColor(segment.roomId, segment.segmentIndex)}
-              strokeWidth={foldingState !== 'unfolded' ? 3 : 2}
-              strokeDasharray={isVisible || foldingState !== 'unfolded' ? '0' : '4,4'}
-            />
-            
-            {/* Add reflection points at segment boundaries (except for start and end points) */}
-            {foldingState !== 'unfolded' && (
-              <>
+      {foldingState === 'unfolded' ? (
+        // Regular ray path rendering
+        <svg 
+          className="ray-path" 
+          style={{ 
+            width: '100%', 
+            height: '100%', 
+            overflow: 'visible'
+          }}
+        >
+          {/* Draw a segment for each room intersection */}
+          {roomSegmentsWithLowestOrder.map((segment, index) => (
+            <g key={index}>
+              <line
+                x1={segment.start.x}
+                y1={segment.start.y}
+                x2={segment.end.x}
+                y2={segment.end.y}
+                stroke={getSegmentColor(segment.roomId, isVisible)}
+                strokeWidth={2}
+                strokeDasharray={isVisible ? '0' : '4,4'}
+              />
+              
+              {/* Add reflection points at segment boundaries (except for start and end points) */}
+              {index > 0 && (
                 <circle
                   cx={segment.start.x}
                   cy={segment.start.y}
-                  r={4}
-                  fill={getSegmentColor(segment.roomId, segment.segmentIndex)}
+                  r={5} // Increased size for better visibility
+                  fill="white"
+                  stroke={getSegmentColor(segment.roomId, isVisible)}
+                  strokeWidth={2}
                 />
-                <circle
-                  cx={segment.end.x}
-                  cy={segment.end.y}
-                  r={4}
-                  fill={getSegmentColor(segment.roomId, segment.segmentIndex)}
-                />
-              </>
-            )}
-          </g>
-        ))}
-        
-        {/* Add markers at end points */}
-        <circle
-          cx={virtualObjectGlobal.x}
-          cy={virtualObjectGlobal.y}
-          r={5}
-          fill={getSegmentColor(virtualObject.roomId, undefined)}
-          stroke="white"
-          strokeWidth={2}
-        />
-        <circle
-          cx={observerGlobal.x}
-          cy={observerGlobal.y}
-          r={5}
-          fill={isVisible ? '#ff9900' : '#ffcccc'} 
-          stroke="white"
-          strokeWidth={2}
-        />
-
-        {/* Add additional junction points for folded visualization */}
-        {foldingState !== 'unfolded' && transformedRayPoints.map((point, index) => (
+              )}
+            </g>
+          ))}
+          
+          {/* Add markers at end points */}
           <circle
-            key={`junction-${index}`}
-            cx={point.x}
-            cy={point.y}
-            r={getPointSize(index)}
-            fill={getPointColor(index)}
-            stroke="#000"
-            strokeWidth={1}
+            cx={virtualObjectGlobal.x}
+            cy={virtualObjectGlobal.y}
+            r={5}
+            fill={getSegmentColor(virtualObject.roomId, isVisible)}
+            stroke="white"
+            strokeWidth={2}
           />
-        ))}
+          <circle
+            cx={observerGlobal.x}
+            cy={observerGlobal.y}
+            r={5}
+            fill={isVisible ? '#ff9900' : '#ffcccc'} 
+            stroke="white"
+            strokeWidth={2}
+          />
 
-        {/* Folding debug information overlay */}
-        {foldingState === 'folding' && (
-          <foreignObject
-            x={0}
-            y={0}
-            width={300}
-            height={150}
-          >
-            <div
-              style={{
-                position: 'absolute',
-                left: 10,
-                top: 10,
-                backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                color: 'white',
-                padding: '5px',
-                fontSize: '10px',
-                zIndex: 100,
-                pointerEvents: 'none',
-                borderRadius: '3px',
-                maxWidth: '300px',
-                maxHeight: '150px',
-                overflow: 'auto'
-              }}
+          {/* Add visibility label */}
+          <g transform={`translate(${midX}, ${midY})`}>
+            <rect
+              x="-40"
+              y="-12"
+              width="80"
+              height="24"
+              rx="4"
+              fill="white"
+              fillOpacity="0.8"
+              stroke={isVisible ? '#ff9900' : '#ffcccc'}
+            />
+            <text
+              textAnchor="middle"
+              y="5"
+              fontSize="12"
+              fontFamily="Arial, sans-serif"
+              fill={isVisible ? '#ff9900' : '#ffcccc'}
             >
-              <div>Step: {currentFoldingStep + 1} / {transformedRayPoints.length / 2}</div>
-              <div>Points: {transformedRayPoints.length}</div>
-            </div>
-          </foreignObject>
-        )}
-      </svg>
+              {isVisible ? 'VISIBLE' : 'NOT VISIBLE'}
+            </text>
+          </g>
+        </svg>
+      ) : (
+        // Folding animation rendering - improved
+        <svg 
+          className="ray-path-folding" 
+          style={{ 
+            width: '100%', 
+            height: '100%', 
+            overflow: 'visible' 
+          }}
+        >
+          {/* Draw folding segments with improved visualization */}
+          {transformedRayPoints.length > 1 && 
+            Array.from({ length: transformedRayPoints.length - 1 }, (_, i) => {
+              const start = transformedRayPoints[i];
+              const end = transformedRayPoints[i + 1];
+              
+              return (
+                <g key={`segment-${i}`}>
+                  <line
+                    x1={start.x}
+                    y1={start.y}
+                    x2={end.x}
+                    y2={end.y}
+                    stroke="red"
+                    strokeWidth={3}
+                    strokeOpacity={0.8}
+                  />
+                  <circle
+                    cx={start.x}
+                    cy={start.y}
+                    r={4}
+                    fill="yellow"
+                    stroke="#000"
+                    strokeWidth={1}
+                  />
+                  {i === transformedRayPoints.length - 2 && (
+                    <circle
+                      cx={end.x}
+                      cy={end.y}
+                      r={4}
+                      fill="yellow"
+                      stroke="#000"
+                      strokeWidth={1}
+                    />
+                  )}
+                </g>
+              );
+            })
+          }
+          
+          {/* Original endpoints */}
+          <circle
+            cx={virtualObjectGlobal.x}
+            cy={virtualObjectGlobal.y}
+            r={5}
+            fill="magenta"
+            stroke="white"
+            strokeWidth={2}
+          />
+          <circle
+            cx={observerGlobal.x}
+            cy={observerGlobal.y}
+            r={5}
+            fill="purple" 
+            stroke="white"
+            strokeWidth={2}
+          />
+          
+          {/* Folding step indicator */}
+          {foldingState === 'folding' && (
+            <foreignObject x={10} y={10} width={200} height={60}>
+              <div style={{
+                background: 'rgba(0,0,0,0.7)',
+                color: 'white',
+                padding: '8px',
+                borderRadius: '4px',
+                fontSize: '14px',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.3)'
+              }}>
+                <div>Step {currentFoldingStep}</div>
+                <div style={{ marginTop: '4px', fontSize: '12px', opacity: 0.8 }}>
+                  Folding ray segments to see how light really travels
+                </div>
+              </div>
+            </foreignObject>
+          )}
+        </svg>
+      )}
     </div>
   );
 };
