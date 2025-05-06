@@ -11,6 +11,8 @@
     "clean": "rm -rf node_modules/.vite"
   },
   "dependencies": {
+    "@types/animejs": "^3.1.13",
+    "animejs": "^4.0.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },

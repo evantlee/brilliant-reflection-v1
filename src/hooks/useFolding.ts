@@ -37,7 +37,7 @@ export const useFolding = (
       try {
         // Use dynamic import
         const animeModule = await import('animejs');
-        setAnime(animeModule.default || animeModule);
+        setAnime(animeModule);
       } catch (e) {
         console.error('Failed to load anime.js:', e);
       }
@@ -64,7 +64,7 @@ export const useFolding = (
   // Update folding sequence when ray path changes
   useEffect(() => {
     if (rayPath) {
-      const sequence = getFoldingSequence(rayPath, rooms, originalRoomId);
+      const sequence = getFoldingSequence(rayPath, rooms);
       setFoldingSequence(sequence);
     } else {
       setFoldingSequence([]);
@@ -103,7 +103,7 @@ export const useFolding = (
       
       if (!element) return;
       
-      const transformOrigin = calculateTransformOrigin(room, wall);
+      const transformOrigin = calculateTransformOrigin(wall);
       const { property, value } = getRotationForWall(wall);
       
       timeline.add({

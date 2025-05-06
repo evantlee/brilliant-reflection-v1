@@ -1,5 +1,5 @@
 import { Room, PlacedObject, Point, Observer, RayPath } from '../models/types';
-import { isPointInRoom, createVirtualRoom, findPathToOriginal } from './roomUtils';
+import { isPointInRoom, createVirtualRoom } from './roomUtils';
 
 /**
  * Find the reflection path from original room to virtual room
@@ -318,13 +318,17 @@ export const calculateIntersection = (
 };
 
 /**
- * Check if a given ray path is valid (passes through mirrors correctly)
+ * Check if a ray path is valid by verifying all reflections occur at mirrored walls
  */
 export const isValidRayPath = (
   rayPath: RayPath,
   rooms: Room[]
 ): boolean => {
   // Check each segment of the path
+  if (!rayPath.reflectionPoints || rayPath.reflectionPoints.length === 0) {
+    return true; // No reflection points means it's a direct path
+  }
+  
   for (let i = 0; i < rayPath.reflectionPoints.length; i++) {
     const reflection = rayPath.reflectionPoints[i];
     const [roomId, wall] = reflection.wallId.split('-');
@@ -358,7 +362,9 @@ export const traceRayFromVirtualToReal = (
   // Direct line from virtual object to observer
   const directRay: RayPath = {
     points: [virtualObject.position, observer.position],
+    segments: [],
     reflectionPoints: [],
+    isVisible: true,
     virtualObjectId: virtualObject.id
   };
   
@@ -436,7 +442,9 @@ const computeReflectionPath = (
   
   return {
     points,
+    segments: [],
     reflectionPoints,
+    isVisible: true,
     virtualObjectId: ''  // This should be set by the caller
   };
 };

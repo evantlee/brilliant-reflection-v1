@@ -4,7 +4,6 @@ import { Room, Point, RayPath } from '../models/types';
  * Calculate the transform origin point for folding animation
  */
 export const calculateTransformOrigin = (
-  room: Room,
   wall: 'top' | 'right' | 'bottom' | 'left'
 ): string => {
   switch (wall) {
@@ -49,9 +48,9 @@ export const doesRayPassThroughWall = (
   roomId: string,
   wall: 'top' | 'right' | 'bottom' | 'left'
 ): boolean => {
-  return rayPath.reflectionPoints.some(
-    point => point.wallId === `${roomId}-${wall}`
-  );
+  return rayPath.reflectionPoints?.some(
+    (point: { wallId: string }) => point.wallId === `${roomId}-${wall}`
+  ) || false;
 };
 
 /**
@@ -59,24 +58,25 @@ export const doesRayPassThroughWall = (
  */
 export const getFoldingSequence = (
   rayPath: RayPath,
-  rooms: Room[],
-  originalRoomId: string
+  rooms: Room[]
 ): { room: Room; wall: 'top' | 'right' | 'bottom' | 'left' }[] => {
   const sequence: { room: Room; wall: 'top' | 'right' | 'bottom' | 'left' }[] = [];
   
   // Extract room IDs and walls from reflection points
-  for (const reflection of rayPath.reflectionPoints) {
-    const [roomId, wall] = reflection.wallId.split('-');
-    
-    // Find the room
-    const room = rooms.find(r => r.id === roomId);
-    if (!room) continue;
-    
-    // Add to sequence
-    sequence.push({
-      room,
-      wall: wall as 'top' | 'right' | 'bottom' | 'left'
-    });
+  if (rayPath.reflectionPoints) {
+    for (const reflection of rayPath.reflectionPoints) {
+      const [roomId, wall] = reflection.wallId.split('-');
+      
+      // Find the room
+      const room = rooms.find(r => r.id === roomId);
+      if (!room) continue;
+      
+      // Add to sequence
+      sequence.push({
+        room,
+        wall: wall as 'top' | 'right' | 'bottom' | 'left'
+      });
+    }
   }
   
   return sequence;
@@ -86,13 +86,11 @@ export const getFoldingSequence = (
  * Update ray path points during folding animation
  */
 export const updateRayPathDuringFolding = (
-  rayPath: RayPath,
-  foldProgress: number, // 0 to 1
-  foldingSequence: { room: Room; wall: 'top' | 'right' | 'bottom' | 'left' }[]
+  rayPath: RayPath
 ): Point[] => {
   // This is a placeholder for more complex folding path calculation
   // In a real implementation, this would apply rotational transforms to the ray points
-  return rayPath.points;
+  return rayPath.points || [];
 };
 
 /**

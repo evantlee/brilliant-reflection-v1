@@ -40,7 +40,7 @@ export const useFoldingSimple = (
   // Update folding sequence when ray path changes
   useEffect(() => {
     if (rayPath) {
-      const sequence = getFoldingSequence(rayPath, rooms, originalRoomId);
+      const sequence = getFoldingSequence(rayPath, rooms);
       setFoldingSequence(sequence);
     } else {
       setFoldingSequence([]);
@@ -91,7 +91,7 @@ export const useFoldingSimple = (
         return;
       }
       
-      const transformOrigin = calculateTransformOrigin(room, wall);
+      const transformOrigin = calculateTransformOrigin(wall);
       const { property, value } = getRotationForWall(wall);
       
       // Set up transition
