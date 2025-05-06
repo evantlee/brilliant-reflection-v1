@@ -13,11 +13,23 @@ interface SimpleRayPathProps {
   roomSize: number;
   roomWidth: number;
   roomHeight: number;
+  transformedRayPoints?: Point[];
+  foldingState?: 'unfolded' | 'folding' | 'folded';
+  currentFoldingStep?: number;
+}
+
+// Add a RaySegment interface
+interface RaySegment {
+  start: Point;
+  end: Point;
+  roomId: string;
+  segmentIndex?: number;
 }
 
 /**
  * A simplified ray path component that draws a straight line from a virtual object to the observer.
  * This represents how a user would directly view the virtual image.
+ * Now with support for visualizing the folding process.
  */
 const SimpleRayPath: React.FC<SimpleRayPathProps> = ({
   virtualObject,
@@ -25,7 +37,10 @@ const SimpleRayPath: React.FC<SimpleRayPathProps> = ({
   rooms,
   roomSize,
   roomWidth,
-  roomHeight
+  roomHeight,
+  transformedRayPoints = [],
+  foldingState = 'unfolded',
+  currentFoldingStep = 0
 }) => {
   // Find the original room
   const originalRoom = rooms.find(r => r.reflectionOrder === 0);
@@ -76,90 +91,93 @@ const SimpleRayPath: React.FC<SimpleRayPathProps> = ({
     { x: originalRoomRight, y: originalRoomBottom }
   );
 
-  // After computing midX, midY
-  const midX = (virtualObjectGlobal.x + observerGlobal.x) / 2;
-  const midY = (virtualObjectGlobal.y + observerGlobal.y) / 2;
+  // Generate segments for normal (unfolded) state
+  const generateNormalSegments = (): RaySegment[] => {
+    // Direction vector from object to observer
+    const dx = observerGlobal.x - virtualObjectGlobal.x;
+    const dy = observerGlobal.y - virtualObjectGlobal.y;
 
-  // -- Start slab-based segment generation --
-  // Combine original and virtual rooms
-  const allRooms = [originalRoom, ...rooms];
-  // Get parametric intervals for each room
-  const slabs = findRayRoomIntersections(
-    virtualObjectGlobal,
-    observerGlobal,
-    allRooms,
-    roomSize
-  );
-  console.debug('Slab segments:', slabs);
+    // Get parametric intervals for each room intersection
+    const slabs = findRayRoomIntersections(
+      virtualObjectGlobal,
+      observerGlobal,
+      rooms,
+      roomSize
+    );
 
-  // Direction vector from object to observer
-  const dx = observerGlobal.x - virtualObjectGlobal.x;
-  const dy = observerGlobal.y - virtualObjectGlobal.y;
+    // Build segments for each slab
+    let segments = slabs.map(({ t0, t1, roomId }) => ({
+      start: { x: virtualObjectGlobal.x + dx * t0, y: virtualObjectGlobal.y + dy * t0 },
+      end: { x: virtualObjectGlobal.x + dx * t1, y: virtualObjectGlobal.y + dy * t1 },
+      roomId
+    }));
 
-  // Build segments for each slab
-  let roomSegments = slabs.map(({ t0, t1, roomId }) => ({
-    start: { x: virtualObjectGlobal.x + dx * t0, y: virtualObjectGlobal.y + dy * t0 },
-    end:   { x: virtualObjectGlobal.x + dx * t1, y: virtualObjectGlobal.y + dy * t1 },
-    roomId
-  }));
-
-  // Add final outside segment if ray continues beyond last slab
-  if (slabs.length > 0) {
-    const lastT = slabs[slabs.length - 1].t1;
-    if (lastT < 1) {
-      roomSegments.push({
-        start: { x: virtualObjectGlobal.x + dx * lastT, y: virtualObjectGlobal.y + dy * lastT },
-        end: observerGlobal,
-        roomId: 'outside'
-      });
+    // Add final outside segment if ray continues beyond last slab
+    if (slabs.length > 0) {
+      const lastT = slabs[slabs.length - 1].t1;
+      if (lastT < 1) {
+        segments.push({
+          start: { x: virtualObjectGlobal.x + dx * lastT, y: virtualObjectGlobal.y + dy * lastT },
+          end: observerGlobal,
+          roomId: 'outside'
+        });
+      }
+    } else {
+      // No slabs -> direct line outside
+      segments = [{ start: virtualObjectGlobal, end: observerGlobal, roomId: 'outside' }];
     }
-  } else {
-    // No slabs -> direct line outside
-    roomSegments = [{ start: virtualObjectGlobal, end: observerGlobal, roomId: 'outside' }];
-  }
-  
-  // Get the lowest order room for each segment based on reflection order
-  const roomSegmentsWithLowestOrder = roomSegments.map(segment => {
-    // If it's the outside segment, keep it as is
-    if (segment.roomId === 'outside') return segment;
-    
-    // Find all rooms containing this point (midpoint of segment)
-    const midX = (segment.start.x + segment.end.x) / 2;
-    const midY = (segment.start.y + segment.end.y) / 2;
-    
-    // Find all rooms that contain this point
-    const containingRooms = allRooms.filter(room => {
-      const roomLeft = room.position.x * roomSize;
-      const roomRight = roomLeft + roomSize;
-      const roomTop = room.position.y * roomSize;
-      const roomBottom = roomTop + roomSize;
-      
-      return (
-        midX >= roomLeft && midX <= roomRight &&
-        midY >= roomTop && midY <= roomBottom
-      );
-    });
-    
-    // Sort by reflection order and get the lowest
-    if (containingRooms.length > 0) {
-      containingRooms.sort((a, b) => 
-        (a.reflectionOrder || Infinity) - (b.reflectionOrder || Infinity)
-      );
-      
-      const lowestOrderRoom = containingRooms[0];
-      return {
-        ...segment,
-        roomId: lowestOrderRoom.id
-      };
+
+    return segments;
+  };
+
+  // Generate segments for folded state based on transformed points
+  const generateFoldedSegments = (): RaySegment[] => {
+    // If no transformed points, return empty array
+    if (!transformedRayPoints || transformedRayPoints.length === 0) {
+      return [];
     }
-    
-    return segment;
-  });
-  // -- End segment generation --
+
+    // Create segments from pairs of points
+    const segments = [];
+    for (let i = 0; i < transformedRayPoints.length; i += 2) {
+      if (i + 1 < transformedRayPoints.length) {
+        segments.push({
+          start: transformedRayPoints[i],
+          end: transformedRayPoints[i + 1],
+          roomId: 'folded',
+          segmentIndex: Math.floor(i / 2)
+        });
+      }
+    }
+
+    return segments;
+  };
+
+  // Determine which segments to display based on folding state
+  const displaySegments = foldingState === 'unfolded' 
+    ? generateNormalSegments() 
+    : generateFoldedSegments();
 
   // Helper function to get color for a room segment
-  const getSegmentColor = (roomId: string, isVisible: boolean): string => {
+  const getSegmentColor = (roomId: string, segmentIndex?: number): string => {
     if (!isVisible) return '#ffcccc'; // Light red for not visible
+    
+    // For folded segments during folding
+    if (roomId === 'folded') {
+      // Create a gradient of colors based on segment index
+      if (segmentIndex !== undefined) {
+        // More vibrant colors with better differentiation for folded segments
+        const colors = [
+          '#ff3300', // Bright red 
+          '#ff9900', // Orange
+          '#33cc33', // Green
+          '#3399ff', // Blue
+          '#9933ff', // Purple
+        ];
+        return colors[segmentIndex % colors.length];
+      }
+      return '#ff3300'; // Default red for folded segments
+    }
     
     // For outside segments
     if (roomId === 'outside') return '#ff00ff'; // Outside segments: magenta
@@ -193,6 +211,22 @@ const SimpleRayPath: React.FC<SimpleRayPathProps> = ({
     }
   };
 
+  // Determine junction point size based on importance
+  const getPointSize = (index: number): number => {
+    // Highlight intersection points (which should be every other point)
+    const isIntersection = index % 2 !== 0;
+    
+    // Make intersection points larger
+    return isIntersection ? 6 : 4;
+  };
+
+  // Determine junction point color
+  const getPointColor = (index: number): string => {
+    // Highlight intersection points
+    const isIntersection = index % 2 !== 0;
+    return isIntersection ? '#ffff00' : '#ff0000';
+  };
+
   // Render directly in the component tree with absolute positioning and offset compensation
   return (
     <div 
@@ -217,28 +251,34 @@ const SimpleRayPath: React.FC<SimpleRayPathProps> = ({
         }}
       >
         {/* Draw all ray segments */}
-        {roomSegmentsWithLowestOrder.map((segment, index) => (
+        {displaySegments.map((segment, index) => (
           <g key={index}>
             <line
               x1={segment.start.x}
               y1={segment.start.y}
               x2={segment.end.x}
               y2={segment.end.y}
-              stroke={getSegmentColor(segment.roomId, isVisible)}
-              strokeWidth={1.5}
-              strokeDasharray={isVisible ? '0' : '4,4'}
+              stroke={getSegmentColor(segment.roomId, segment.segmentIndex)}
+              strokeWidth={foldingState !== 'unfolded' ? 3 : 2}
+              strokeDasharray={isVisible || foldingState !== 'unfolded' ? '0' : '4,4'}
             />
             
             {/* Add reflection points at segment boundaries (except for start and end points) */}
-            {index > 0 && (
-              <circle
-                cx={segment.start.x}
-                cy={segment.start.y}
-                r={5} // Increased size for better visibility
-                fill="white"
-                stroke={getSegmentColor(segment.roomId, isVisible)}
-                strokeWidth={2}
-              />
+            {foldingState !== 'unfolded' && (
+              <>
+                <circle
+                  cx={segment.start.x}
+                  cy={segment.start.y}
+                  r={4}
+                  fill={getSegmentColor(segment.roomId, segment.segmentIndex)}
+                />
+                <circle
+                  cx={segment.end.x}
+                  cy={segment.end.y}
+                  r={4}
+                  fill={getSegmentColor(segment.roomId, segment.segmentIndex)}
+                />
+              </>
             )}
           </g>
         ))}
@@ -248,7 +288,7 @@ const SimpleRayPath: React.FC<SimpleRayPathProps> = ({
           cx={virtualObjectGlobal.x}
           cy={virtualObjectGlobal.y}
           r={5}
-          fill={getSegmentColor(virtualObject.roomId, isVisible)}
+          fill={getSegmentColor(virtualObject.roomId, undefined)}
           stroke="white"
           strokeWidth={2}
         />
@@ -261,28 +301,49 @@ const SimpleRayPath: React.FC<SimpleRayPathProps> = ({
           strokeWidth={2}
         />
 
-        {/* Add visibility label */}
-        <g transform={`translate(${midX}, ${midY})`}>
-          <rect
-            x="-40"
-            y="-12"
-            width="80"
-            height="24"
-            rx="4"
-            fill="white"
-            fillOpacity="0.8"
-            stroke={isVisible ? '#ff9900' : '#ffcccc'}
+        {/* Add additional junction points for folded visualization */}
+        {foldingState !== 'unfolded' && transformedRayPoints.map((point, index) => (
+          <circle
+            key={`junction-${index}`}
+            cx={point.x}
+            cy={point.y}
+            r={getPointSize(index)}
+            fill={getPointColor(index)}
+            stroke="#000"
+            strokeWidth={1}
           />
-          <text
-            textAnchor="middle"
-            y="5"
-            fontSize="12"
-            fontFamily="Arial, sans-serif"
-            fill={isVisible ? '#ff9900' : '#ffcccc'}
+        ))}
+
+        {/* Folding debug information overlay */}
+        {foldingState === 'folding' && (
+          <foreignObject
+            x={0}
+            y={0}
+            width={300}
+            height={150}
           >
-            {isVisible ? 'VISIBLE' : 'NOT VISIBLE'}
-          </text>
-        </g>
+            <div
+              style={{
+                position: 'absolute',
+                left: 10,
+                top: 10,
+                backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                color: 'white',
+                padding: '5px',
+                fontSize: '10px',
+                zIndex: 100,
+                pointerEvents: 'none',
+                borderRadius: '3px',
+                maxWidth: '300px',
+                maxHeight: '150px',
+                overflow: 'auto'
+              }}
+            >
+              <div>Step: {currentFoldingStep + 1} / {transformedRayPoints.length / 2}</div>
+              <div>Points: {transformedRayPoints.length}</div>
+            </div>
+          </foreignObject>
+        )}
       </svg>
     </div>
   );
